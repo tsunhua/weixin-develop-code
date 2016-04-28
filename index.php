@@ -3,7 +3,8 @@
 date_default_timezone_set("Asia/Shanghai");
 
 define("TOKEN", "dowhiledone");
-
+//解决中文乱码问题
+//header("Content-Type: text/html;charset=utf-8"); 
 
 $wechatObj = new WechatObj();
 
@@ -400,6 +401,23 @@ class WechatObj{
                 echo $title;
                 echo $desc; 
                 $resultStr = $this->sendSingleTuwen($postObj,$title,$desc,null,null);
+        }else if(strpos($keyword,"翻译") !== false){ //在第0个位置时为false
+
+            $word = explode("翻译",$keyword)[1];
+           // echo $word;
+
+            $url = 'http://fanyi.youdao.com/openapi.do?keyfrom=dowhiledone&key=1527788024&type=data&doctype=json&version=1.1&q='.urlencode("$word");
+            $ch = curl_init();
+            curl_setopt($ch , CURLOPT_URL , $url);
+            curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+            $res = curl_exec($ch);
+            //curl_close($ch);
+
+            $fanyi = json_decode($res);
+            $text = $fanyi->translation[0];
+            //echo $text;
+            $resultStr = $this->sendText($postObj,$text);
+          
         }else{
             $resultStr="";
         }  
