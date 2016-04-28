@@ -377,6 +377,29 @@ class WechatObj{
             
             $title = "$city".'的天气';
             $resultStr = $this->sendSingleTuwen($postObj,$title,$desc,null,null);
+        }else if($keyword == "笑话" || $keyword=="joke"){
+                $ch = curl_init();
+                $url = 'http://apis.baidu.com/showapi_open_bus/showapi_joke/joke_text?page=1';
+                $header = array(
+                    'apikey: eada14f7ad004be64c445de510ed8b44',
+                );
+                // 添加apikey到header
+                curl_setopt($ch, CURLOPT_HTTPHEADER  , $header);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                // 执行HTTP请求
+                curl_setopt($ch , CURLOPT_URL , $url);
+                $res = curl_exec($ch);
+                $xiaohua = json_decode($res);
+                
+                $contentlist = $xiaohua->showapi_res_body->contentlist;
+                
+                $index = rand(0,sizeof($contentlist));
+                
+                $title = $contentlist[$index]->title;
+                $desc = $contentlist[$index]->text;
+                echo $title;
+                echo $desc; 
+                $resultStr = $this->sendSingleTuwen($postObj,$title,$desc,null,null);
         }else{
             $resultStr="";
         }  
