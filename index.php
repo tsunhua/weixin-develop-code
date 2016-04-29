@@ -37,22 +37,23 @@ class WechatObj{
         echo $this->request($url);
     }
     //上传音乐
-    public function uploadMusic(){
+    public function uploadMusic($title,$url){
         $token = $this->getAccessToken();
         $url='http://file.api.weixin.qq.com/cgi-bin/media/upload?access_token='."$token".'&type=voice';
         
         $ch = curl_init();
 
-        $data = array('name' => 'test.mp3', 'file' => '@/usr/share/nginx/html/wx/test.mp3');
+        $data = array('name' => "$title".'.mp3', 'file' => '@'."$url");
 
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_SAFE_UPLOAD, false); //  PHP 5.6.0 后必须开启
         curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 
-        echo curl_exec($ch);
+        $id= curl_exec($ch);
         
         curl_close($ch);
+        return $id;
         
     }
 
@@ -145,8 +146,7 @@ class WechatObj{
             return $json->access_token;
     }
 
-    private function checkSignature()
-    {
+    private function checkSignature(){
         $signature = $_GET["signature"];
         $timestamp = $_GET["timestamp"];
         $nonce = $_GET["nonce"];
@@ -165,8 +165,7 @@ class WechatObj{
     }
 
     //响应信息
-    public function responseMsg()
-    {
+    public function responseMsg(){
         $postStr = $GLOBALS["HTTP_RAW_POST_DATA"];
 
         if (!empty($postStr)){
@@ -203,7 +202,7 @@ class WechatObj{
                 switch($postObj->EventKey){
                     case "V1001_TODAY_MUSIC":
                     $media_id="sOQF0N7czNDHLammCqQ5SKpL0unksDvgCdaXLPmBrRJdWrpwh5ycZPqX0m9R8muE";
-                       $resultStr = $this->sendMusic($postObj,$media_id);
+                       $resultStr = $this->sendAudio($postObj,$media_id);
                         break;
                     case "V1001_TODAY_SINGER":
                         $title="百度之谜";
@@ -290,8 +289,8 @@ class WechatObj{
         return $resultStr;   
     }
 
-    //发送音乐
-    private function sendMusic($postObj,$media_id){
+    //发送音频
+    private function sendAudio($postObj,$media_id){
         
         $fromUsername = $postObj->FromUserName;
         $toUsername = $postObj->ToUserName;
@@ -418,12 +417,83 @@ class WechatObj{
             //echo $text;
             $resultStr = $this->sendText($postObj,$text);
           
+        }else if(strpos($keyword,"播放") !== false){
+            $title = explode("播放",$keyword)[1];
+            /*
+            $title = "生日快乐";
+             $desc = "无";
+            $music_url="http://store3.nipic.com/file/20121121/227267_09451802797.mp3";
+            $HQ_music_url="http://store3.nipic.com/file/20121121/227267_09451802797.mp3";
+            //$resultStr = $this->sendText($postObj,'<a href="'."$music_url".'">'.$title.'</a>');
+          
+            //$resultStr = $this->sendMusic($postObj,$title,$desc,$music_url,$HQ_music_url);
+            */
+            $url = "http://box.zhangmen.baidu.com/x?op=12&count=1&title=".urlencode($title)."$$";
+            $ch = curl_init();
+            curl_setopt($ch,CURLOPT_URL,$url);
+            curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+            $data = curl_exec($ch);
+            curl_close($ch);
+            try{
+                $menus = simplexml_load_string($data, 'SimpleXMLElement', LIBXML_NOCDATA);
+                //$menus = simplexml_load_string($data,"SimpleXMLElement",LIBXML_NOCDATA);
+                foreach($menus as $menu){
+                    if(isset($menu->encode) && isset($menu->decode)
+                    && !strpos($menu->encode,"baidu.com")
+                    && strpos($menu->decode,".mp3")){
+                    $result = substr($menu->encode,0,strripos($menu->encode,'/')+1).$menu->decode;
+                        if(!strpos($result,"?") && !strpos($result,"xcode")){
+                            $desc = "";
+                            $music_url=urldecode($result);
+                            $HQ_music_url=urldecode($result);
+                            //$resultStr = $this->sendText($postObj,'<a href="'."$music_url".'">'.$title.'</a>');
+                            //$music_url="http://store3.nipic.com/file/20121121/227267_09451802797.mp3";
+                            //$HQ_music_url="http://store3.nipic.com/file/20121121/227267_09451802797.mp3";
+                            
+                            $resultStr = $this->sendMusic($postObj,$title,$desc,$music_url,$HQ_music_url);
+                        }
+                    }
+                }
+            }catch(Exception $e){
+                //do nothing
+            }
         }else{
-            $resultStr="";
+            $info=$keyword;
+            $userid=$postObj->FromUserName;
+            $url = 'http://www.tuling123.com/openapi/api?key=51add1929e6e97e3f36e5e6efcc46b52&loc=广州&info='."$info"."&userid="."$userid";
+
+            $res=json_decode($this->request($url));
+            $resultStr=$this->sendText($postObj,$res->text);
         }  
         return $resultStr;
 	}
+    //发送音乐
+    private function sendMusic($postObj,$title,$desc,$music_url,$HQ_music_url){
+        
+        $fromUsername = $postObj->FromUserName;
+        $toUsername = $postObj->ToUserName;
+        
+        $my_logo_id = "ASQD1_6C4MeLdbkB2m_u2vyKh64ZlOo80HBIDoguSkvnQiecl4AAyA94w7N8FLEm";
+        
+        $time = time();
+        $textTpl = "<xml>
+                    <ToUserName><![CDATA[%s]]></ToUserName>
+                    <FromUserName><![CDATA[%s]]></FromUserName>
+                    <CreateTime>%s</CreateTime>
+                    <MsgType><![CDATA[music]]></MsgType>
+                    <Music>
+                    <Title><![CDATA[%s]]></Title>
+                    <Description><![CDATA[%s]]></Description>
+                    <MusicUrl><![CDATA[%s]]></MusicUrl>
+                    <HQMusicUrl><![CDATA[%s]]></HQMusicUrl>
+                    <ThumbMediaId><![CDATA[$my_logo_id]]></ThumbMediaId>
+                    </Music>
+                    </xml>";
+        $resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $title,$desc,$music_url,$HQ_music_url);
+        return $resultStr;
+    }
 }
+
 
 //图文类
  class Tuwen{
